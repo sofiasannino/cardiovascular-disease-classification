@@ -10,13 +10,34 @@ import datetime
 # Numerical computing
 import numpy as np
 
-#importing optimization functions
-from optimization import *
-from costs import *
+
 from helpers import batch_iter
 
 
-def compute_mse(y, tx, w):
+
+### COMPUTATION OF LOSSES ###
+def compute_logistic_loss(y, tx, w):
+    """
+        Calculate logistic loss when y is in {0, 1}
+    Args: 
+        - y = numpy array of shape (N, ) containing training outputs
+        - tx = numpy array of shape (N, d) containing training inputs
+        - w = numpy array of shape (d, ) containing parameters
+    Returns: 
+        - loss = logistic loss value at w
+    """
+    #sample size
+    N = len(y)
+
+    #compute loss
+    z = tx @ w
+    loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z))))
+
+    return loss
+
+
+
+def compute_mse_loss(y, tx, w):
     """Calculate the MSE loss.
 
     Args:
@@ -32,8 +53,10 @@ def compute_mse(y, tx, w):
     return (1 / (2 * N)) * (e.T @ e)
 
 
+
+### GRADIENTS COMPUTATION ###
 def compute_gradient(y, tx, w):
-    """Computes the gradient at w.
+    """Computes the gradient at w of MSE loss.
 
     Args:
         y: numpy array of shape=(N, ).
@@ -47,11 +70,70 @@ def compute_gradient(y, tx, w):
     e = y - tx @ w
     return (-1 / N) * tx.T @ e
 
+def sigmoid(z):
+    """Numerically stable sigmoid."""
+    return 1 / (1 + np.exp(-z))
 
-####### Gradient Descent
+
+def compute_logistic_gradient(y, tx, w):
+    """Computes the gradient at w in logistic loss function case
+
+    Args:
+        y: shape=(N, )
+        tx: shape=(N,2)
+        w: shape=(d, ). The vector of model parameters.
+
+    Returns:
+        An array of shape (d, ) (same shape as w), containing the gradient of the loss at w.
+    """
+    #sample size
+    N=len(y)
+
+    #compute logistic function
+    z = tx @ w
+    sigma = sigmoid(z)
+    
+    #compute gradient
+    grad=(1/N)* tx.T @ (sigma - y)
+
+    return grad
+
+
+
+
+
+### OPTIMIZATION ALGORITHMS ###
+def logistic_gradient_descent(y, tx, initial_w, max_iters, gamma):
+    """The Gradient Descent (GD) algorithm applied to logistic regression.
+
+    Args:
+        y: shape=(N, )
+        tx: shape=(N,d)
+        initial_w: shape=(d, ). The initial guess (or the initialization) for the model parameters
+        max_iters: a scalar denoting the total number of iterations of GD
+        gamma: a scalar denoting the stepsize
+
+    Returns:
+        w: w optimal through GD
+        loss: loss function value evaluated at w optimal
+        
+    """
+    
+    w = initial_w
+    
+    for n_iter in range(max_iters):
+        # computing gradient and loss
+        grad=compute_logistic_gradient(y, tx, w)
+        loss=compute_logistic_loss(y, tx, w)
+        
+        # update w by gradient
+        w = w - gamma * grad
+
+    return w, loss
+
 
 def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
-    """The Gradient Descent (GD) algorithm.
+    """The Gradient Descent (GD) algorithm applied to linear regression with MSE loss function.
 
     Args:
         y: numpy array of shape=(N, ).
@@ -69,14 +151,13 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
         grad = compute_gradient(y, tx, w)
         # Update w
         w = w - gamma * grad
-    loss = compute_mse(y, tx, w)
+    loss = compute_mse_loss(y, tx, w)
     return w, loss
 
 
-####### SGD
 
 def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
-    """Stochastic Gradient Descent (SGD) algorithm.
+    """Stochastic Gradient Descent (SGD) algorithm for linear regression with MSE loss function.
 
     Args:
         y: numpy array of shape=(N, ).
@@ -95,13 +176,14 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
         grad = compute_gradient(y_i, x_i, w)
         # Update w
         w = w - gamma * grad
-    loss = compute_mse(y, tx, w)
+    loss = compute_mse_loss(y, tx, w)
 
     return w, loss
 
 
 def ridge_regression(y, tx, lambda_):
-    'Ridge regression using normal equations'
+    """
+    Ridge regression using normal equations'
     'INPUTS:
     '        - y = numpy  array of shape (N,) containing train outputs
     '        - tx = numpy array of shape (N, d) containing train inputs
@@ -109,6 +191,7 @@ def ridge_regression(y, tx, lambda_):
     'OUTPUTS:
     '        -w = numpy arraing containing the solution paramters
     '        -loss= the loss function value corresponding to the solution parameters, WITHOUT penalizing term
+    """
     # sample size
     N= len(y)
 
@@ -117,7 +200,7 @@ def ridge_regression(y, tx, lambda_):
     w= (np.linalg.inv(tx.T @ tx + lambda_1 @ np.eye(tx.shape[1])))@ tx.T @ y
 
     #loss L(w) without penalizing term
-    loss = compute_loss(y, tx, w)
+    loss = compute_mse_loss(y, tx, w)
 
     return w, loss
 
