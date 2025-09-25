@@ -31,7 +31,7 @@ def compute_logistic_loss(y, tx, w,lambda_):
 
     #compute loss
     z = tx @ w
-    loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z))))
+    loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z)))) + lambda_
 
     return loss
 
@@ -99,12 +99,9 @@ def compute_logistic_gradient(y, tx, w, lambda_):
     sigma = sigmoid(z)
     
     #compute gradient
-    grad=(1/N)* tx.T @ (sigma - y)
+    grad=(1/N)* tx.T @ (sigma - y) + 2 * lambda_ * w
 
-    if lambda_ == 0:
-        return grad
-    else:
-        return grad + 2 * lambda_ * w
+    return grad
 
 
 ### OPTIMIZATION ALGORITHMS ###
@@ -123,14 +120,15 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
                 - loss= the loss function value corresponding to the solution parameters
     """
     w = initial_w
+    lambda_ = 0
     
     for n_iter in range(max_iters):
         # computing gradient and loss
-        grad=compute_logistic_gradient(y, tx, w)
+        grad=compute_logistic_gradient(y, tx, w, lambda_)
         
         # update w by gradient
         w = w - gamma * grad
-    loss=compute_logistic_loss(y, tx, w) #compute optimal loss
+    loss=compute_logistic_loss(y, tx, w,lambda_) #compute optimal loss
 
     return w, loss
 
