@@ -223,15 +223,10 @@ def least_squares(y,tx):
         w: numpy array of shape=(N, ). The optimal model parameters.
         loss: a scalar denoting the loss value (scalar) for the optimal model parameters. 
     """
+
+    w = np.linalg.solve(tx.T @ tx, tx.T @ y)
     
-    ones = np.ones((tx.shape[0], 1)) 
-    X = np.concatenate([ones, tx], axis=1)
-    #X[np.isnan(X)] = 0
-    #w = np.linalg.inv(X.T @ X) @ X.T @ y
-    
-    w = np.linalg.solve(tx,y)
-    
-    loss = compute_mse_loss(y,tx,w)
+    loss = compute_mse_loss(y, tx, w)
     
     return w, loss
 
@@ -253,7 +248,7 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
     for n_iter in range(max_iters):
         gradient = compute_logistic_gradient(y, tx, w, lambda_)
         w = w - gamma * gradient
-    loss = compute_logistic_loss(y, tx, w, lambda_)
+    loss = compute_logistic_loss(y, tx, w, lambda_=0)
 
     return w, loss
 
