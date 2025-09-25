@@ -9,10 +9,7 @@ import datetime
 
 # Numerical computing
 import numpy as np
-
-
 from helpers import batch_iter
-
 
 
 ### COMPUTATION OF LOSSES ###
@@ -34,7 +31,6 @@ def compute_logistic_loss(y, tx, w,lambda_):
     loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z)))) + lambda_
 
     return loss
-
 
 
 def compute_mse_loss(y, tx, w):
@@ -112,11 +108,11 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
     INPUTS:
                 - y = numpy  array of shape (N,) containing train outputs (0, 1)
                 - tx = numpy array of shape (N, d) containing train inputs
-                - initial_w = initial weight vector of paramters
+                - initial_w = initial weight vector of parameters
                 - max_iters= max number of iterations allowed in gradient descendent algorithm
                 - gamma = step-size
     OUTPUTS:
-                - w = numpy arraing containing the solution paramters
+                - w = numpy array containing the solution parameters
                 - loss= the loss function value corresponding to the solution parameters
     """
     w = initial_w
@@ -190,7 +186,7 @@ def ridge_regression(y, tx, lambda_):
             - tx = numpy array of shape (N, d) containing train inputs
             - lambda_ = ridge regression parameter
     OUTPUTS:
-            -w = numpy arraing containing the solution paramters
+            -w = numpy array containing the solution parameter
             -loss= the loss function value corresponding to the solution parameters, WITHOUT penalizing term
     """
         # sample size
