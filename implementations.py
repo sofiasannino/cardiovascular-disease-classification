@@ -210,8 +210,123 @@ def ridge_regression(y, tx, lambda_):
     return w, loss
 
 
+def least_squares(y,tx):
+    
+    """
+    Linear regression using least squares
+    
+    Args:
+    
+        tx: numpy array of shape=(N,D)
+        y: numpy array of shape=(N, )
+        
+    Returns:
+    
+        w: numpy array of shape=(N, ). The optimal model parameters.
+        loss: a scalar denoting the loss value (scalar) for the optimal model parameters. 
+    """
+    
+    ones = np.ones((tx.shape[0], 1)) 
+    X = np.concatenate([ones, tx], axis=1)
+    #X[np.isnan(X)] = 0
+    #w = np.linalg.inv(X.T @ X) @ X.T @ y
+    
+    w = np.linalg.solve(tx,y)
+    
+    loss = compute_mse(y,tx,w)
+    
+    return w, loss
 
+def compute_reg_logistic_loss(y, tx, w,lambda_)
+"""
+        Calculate logistic loss when y is in {0, 1}
+Args: 
+        - y = numpy array of shape (N, ) containing training outputs
+        - tx = numpy array of shape (N, d) containing training inputs
+        - w = numpy array of shape (d, ) containing parameters
+Returns: 
+        - loss = logistic loss value at w
+"""
+    #sample size
+    N = len(y)
 
+    #compute loss
+    z = tw @ w
+    loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z)) + lambda_*np.square(w)))
+
+    return loss
+
+def compute_reg_logistic_gradient(y, tx, w, lambda_):
+    """Computes the gradient at w in logistic loss function case
+
+    Args:
+        y: shape=(N, )
+        tx: shape=(N,2)
+        w: shape=(d, ). The vector of model parameters.
+
+    Returns:
+        An array of shape (d, ) (same shape as w), containing the gradient of the loss at w.
+    """
+    #sample size
+    N=len(y)
+
+    #compute logistic function
+    z = tx @ w
+    sigma = sigmoid(z)
+    
+    #compute gradient
+    grad=(1/N)* tx.T @ (sigma - y) + 2*lambda_*w
+
+    return grad
+
+def reg_logistic_gradient_descent(y,tx,lambda_,initial_w,max_iters,gamma):
+    """The Regularised Logistic Gradient Descent (GD) algorithm.
+
+    Args:
+        y: shape=(N, )
+        tx: shape=(N,d)
+        initial_w: shape=(d, ). The initial guess (or the initialization) for the model parameters
+        max_iters: a scalar denoting the total number of iterations of GD
+        gamma: a scalar denoting the stepsize
+        lambda: regularisation term
+
+    Returns:
+        w: w optimal through GD
+        loss: loss function value evaluated at w optimal
+        
+    """
+    
+    w = initial_w
+    
+    for n_iter in range(max_iters):
+        # computing gradient and loss
+        grad=compute_reg_logistic_gradient(y, tx, w,lambda_)
+        loss=compute_reg_logistic_loss(y, tx, w, lambda_)
+        
+        # update w by gradient
+        w = w - gamma * grad
+
+    return w, loss
+
+def reg_logistic_regression(y,tx,lambda_,initial_w,max_iters,gamma):
+    """
+    Regularised Logistic regression using gradient descent (y ∈ {0, 1})
+
+    INPUTS:
+                - y = numpy  array of shape (N,) containing train outputs (0, 1)
+                - tx = numpy array of shape (N, d) containing train inputs
+                - initial_w = initial weight vector of paramters
+                - max_iters= max number of iterations allowed in gradient descendent algorithm
+                - gamma = step-size
+                - lambda: regularisation term
+    OUTPUTS:
+                - w = numpy arraing containing the solution paramters
+                - loss= the loss function value corresponding to the solution parameters
+    """
+    w, loss = reg_logistic_gradient_descent(y, tx, lambda_,initial_w, max_iters, gamma) #w optimal through logistic gradient descendent
+        
+        
+    return w, loss
 
 
 
