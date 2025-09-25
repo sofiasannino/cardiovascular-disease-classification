@@ -16,7 +16,7 @@ from helpers import batch_iter
 
 
 ### COMPUTATION OF LOSSES ###
-def compute_logistic_loss(y, tx, w):
+def compute_logistic_loss(y, tx, w,lambda_):
     """
         Calculate logistic loss when y is in {0, 1}
     Args: 
@@ -80,7 +80,7 @@ def sigmoid(z):
     return result
 
 
-def compute_logistic_gradient(y, tx, w,lambda_):
+def compute_logistic_gradient(y, tx, w, lambda_):
     """Computes the gradient at w in logistic loss function case
 
     Args:
@@ -101,10 +101,10 @@ def compute_logistic_gradient(y, tx, w,lambda_):
     #compute gradient
     grad=(1/N)* tx.T @ (sigma - y)
 
-    return grad
-
-
-
+    if lambda_ == 0:
+        return grad
+    else:
+        return grad + 2 * lambda_ * w
 
 
 ### OPTIMIZATION ALGORITHMS ###
