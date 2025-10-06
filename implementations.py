@@ -28,7 +28,7 @@ def compute_logistic_loss(y, tx, w,lambda_):
 
     #compute loss
     z = tx @ w
-    loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z)))) + lambda_
+    loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z)))) + lambda_ *(( np.linalg.norm(w) )**2)
 
     return loss
 
@@ -77,15 +77,16 @@ def sigmoid(z):
 
 
 def compute_logistic_gradient(y, tx, w, lambda_):
-    """Computes the gradient at w in logistic loss function case
+    """Computes the gradient of logistic loss function at w. L2 regularization is used.
 
     Args:
         y: shape=(N, )
         tx: shape=(N,d)
         w: shape=(d, ). The vector of model parameters.
+        lambda_ : regularization parameter
 
     Returns:
-        An array of shape (d, ) (same shape as w), containing the gradient of the loss at w.
+        An array of shape (d, ) (same shape as w), containing the gradient of the L2-regularized loss at w.
     """
     #sample size
     N=len(y)
@@ -171,7 +172,7 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
     for n_iter in range(max_iters):
         y_i, x_i = next(batch_iter(y, tx, batch_size=1))
         grad = compute_gradient(y_i, x_i, w)
-        # Update w
+        # updating w
         w = w - gamma * grad
     loss = compute_mse_loss(y, tx, w)
 
@@ -189,7 +190,7 @@ def ridge_regression(y, tx, lambda_):
             -w = numpy array containing the solution parameter
             -loss= the loss function value corresponding to the solution parameters, WITHOUT penalizing term
     """
-        # sample size
+    #sample size
     N= len(y)
 
     #optimal parameters vector
@@ -238,7 +239,7 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
         gamma : a scalar denoting the stepsize.
     Returns :
         w : numpy array of shape = (D, ). The optimal model parameters.
-        loss : a scalar denoting the loss value (scalar) for the optimal model parameters.
+        loss : a scalar denoting the loss value for the optimal model parameters, without considering the penalized term.
     """
     w = initial_w
     for n_iter in range(max_iters):
@@ -247,6 +248,79 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
     loss = compute_logistic_loss(y, tx, w, lambda_=0)
 
     return w, loss
+
+### ADDITIONAL OPTIMIZATION ALGORITHMS ###
+
+def reg_logistic_regression_adam(y, tx, lambda_, initial_w, max_iters,beta_1, beta_2, gamma, mini_batch_size):
+    """L2-Regularized logistic regression using mini-batch Adam algorithm (y ∈ {0, 1}).
+
+    Args :
+        y : numpy array of shape = (N, ).
+        tx : numpy array of shape = (N, D).
+        lambda_ : a scalar denoting the regularization parameter.
+        initial_w : numpy array of shape = (D, ).
+        max_iters : a scalar denoting the total number of iterations of Adam SGD.
+        beta_1 : a scalar ∈ [0, 1] that defines the momentum parameter.
+        beta_2 : a scalar ∈ [0, 1] that defines the average of past squared gradients parameter.
+        gamma : a scalar denoting the stepsize.
+        mini_batch_size : size of the minibatch randomly chosen to compute gradient 
+    Returns :
+        w : numpy array of shape = (D, ). The optimal model parameters.
+        loss : a scalar denoting the logistic loss value for the optimal model parameters, without considering the penalization term.
+    """
+    # Initial parameters
+    w = initial_w
+    m = np.zeros_like(w)
+    v = np.zeros_like(w)
+    it = 0 #iterations
+    eps = 1e-8
+
+    # Applying Adam
+    for n_iter in range(max_iters):
+        it = it + 1
+        y_i, x_i = next(batch_iter(y, tx, mini_batch_size))
+        gradient = compute_logistic_gradient(y_i, x_i, w, lambda_)
+
+        # Updating momentum and second raw momentum
+        m = beta_1 * m + (1- beta_1) * gradient #momentum 
+        v = beta_2 * v + (1- beta_2) * (gradient ** 2) #squared gradients average
+        
+        
+        # Unbiased first and second momentum
+        m_hat = m /(1 - beta_1 ** it)
+        v_hat= v / (1 - beta_2 ** it)
+        
+        w = w - (gamma/(np.sqrt(v_hat)+ eps)) * m_hat
+
+    # Computing optimal loss, without penalization term 
+    loss = compute_logistic_loss(y, tx, w, lambda_=0)
+
+    return w, loss
+
+### OTHERS ###
+def auc(y_true, y_scores):
+    """
+    AUC calculation using Mann-Whitney statistics
+    Inputs : 
+            - y_true : numpy array containing the real {0, 1} values of the dataset
+            - y_scores : numpy array containing our predictions
+    Output : 
+            AUC Area under the ROC curve 
+    """
+    order = np.argsort(y_scores)
+    y_true_sorted = y_true[order]
+
+    n_pos = np.sum(y_true)
+    n_neg = len(y_true) - n_pos
+
+    # rank positions 
+    rank_positions = np.arange(1, len(y_true_sorted) + 1)
+    rank_sum = np.sum(rank_positions[y_true_sorted == 1])
+
+    # AUC using Mann–Whitney
+    auc = (rank_sum - n_pos*(n_pos+1)/2) / (n_pos * n_neg)
+    return auc
+
 
 
 
