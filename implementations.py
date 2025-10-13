@@ -12,14 +12,18 @@ import numpy as np
 from helpers import batch_iter
 
 
+
+# ********************************************************************************
 ### COMPUTATION OF LOSSES ###
-def compute_logistic_loss(y, tx, w,lambda_):
+# ********************************************************************************
+def compute_logistic_loss(y, tx, w, lambda_ = 0):
     """
         Calculate logistic loss when y is in {0, 1}
     Args: 
         - y = numpy array of shape (N, ) containing training outputs
         - tx = numpy array of shape (N, d) containing training inputs
         - w = numpy array of shape (d, ) containing parameters
+        - lambda_ : regularization parameter
     Returns: 
         - loss = logistic loss value at w
     """
@@ -42,7 +46,7 @@ def compute_mse_loss(y, tx, w):
         w: numpy array of shape=(D,). The vector of model parameters.
 
     Returns:
-        the value of the loss (a scalar), corresponding to the input parameters w.
+        the value of the MSE loss (a scalar), corresponding to the input parameters w.
     """
     e = y - tx @ w
     N = y.shape[0]
@@ -50,7 +54,11 @@ def compute_mse_loss(y, tx, w):
 
 
 
+
+
+# *******************************************************************************************
 ### GRADIENTS COMPUTATION ###
+# *******************************************************************************************
 def compute_gradient(y, tx, w):
     """Computes the gradient at w of MSE loss.
 
@@ -101,7 +109,10 @@ def compute_logistic_gradient(y, tx, w, lambda_):
     return grad
 
 
+
+# ***********************************************************************
 ### OPTIMIZATION ALGORITHMS ###
+# ***********************************************************************
 def logistic_regression(y, tx, initial_w, max_iters, gamma):
     """
     Logistic regression using gradient descent (y ∈ {0, 1})
@@ -122,9 +133,9 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
     for n_iter in range(max_iters):
         # computing gradient and loss
         grad=compute_logistic_gradient(y, tx, w, lambda_)
-        
         # update w by gradient
         w = w - gamma * grad
+
     loss=compute_logistic_loss(y, tx, w,lambda_) #compute optimal loss
 
     return w, loss
@@ -145,10 +156,12 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
         ws: a list of length max_iters containing the model parameters as numpy arrays of shape (2, ), for each iteration of GD.
     """
     w = initial_w
+
     for n_iter in range(max_iters):
         grad = compute_gradient(y, tx, w)
         # Update w
         w = w - gamma * grad
+
     loss = compute_mse_loss(y, tx, w)
     return w, loss
 
@@ -168,14 +181,14 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
         loss: a scalar denoting the loss value (scalar) for the optimal model parameters.
     """
     w = initial_w
-    N = len(y)
+    
     for n_iter in range(max_iters):
         y_i, x_i = next(batch_iter(y, tx, batch_size=1))
         grad = compute_gradient(y_i, x_i, w)
         # updating w
         w = w - gamma * grad
-    loss = compute_mse_loss(y, tx, w)
 
+    loss = compute_mse_loss(y, tx, w)
     return w, loss
 
 
@@ -245,12 +258,16 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
     for n_iter in range(max_iters):
         gradient = compute_logistic_gradient(y, tx, w, lambda_)
         w = w - gamma * gradient
+        
     loss = compute_logistic_loss(y, tx, w, lambda_=0)
 
     return w, loss
 
-### ADDITIONAL OPTIMIZATION ALGORITHMS ###
 
+
+# ***********************************************************
+### ADDITIONAL OPTIMIZATION ALGORITHM ###
+#************************************************************
 def reg_logistic_regression_adam(y, tx, lambda_, initial_w, max_iters,beta_1, beta_2, gamma, mini_batch_size):
     """L2-Regularized logistic regression using mini-batch Adam algorithm (y ∈ {0, 1}).
 
@@ -297,29 +314,7 @@ def reg_logistic_regression_adam(y, tx, lambda_, initial_w, max_iters,beta_1, be
 
     return w, loss
 
-### OTHERS ###
-def auc(y_true, y_scores):
-    """
-    AUC calculation using Mann-Whitney statistics
-    Inputs : 
-            - y_true : numpy array containing the real {0, 1} values of the dataset
-            - y_scores : numpy array containing our predictions
-    Output : 
-            AUC Area under the ROC curve 
-    """
-    order = np.argsort(y_scores)
-    y_true_sorted = y_true[order]
 
-    n_pos = np.sum(y_true)
-    n_neg = len(y_true) - n_pos
-
-    # rank positions 
-    rank_positions = np.arange(1, len(y_true_sorted) + 1)
-    rank_sum = np.sum(rank_positions[y_true_sorted == 1])
-
-    # AUC using Mann–Whitney
-    auc = (rank_sum - n_pos*(n_pos+1)/2) / (n_pos * n_neg)
-    return auc
 
 
 
