@@ -27,12 +27,10 @@ def compute_logistic_loss(y, tx, w, lambda_ = 0):
     Returns: 
         - loss = logistic loss value at w
     """
-    #sample size
-    N = len(y)
 
     #compute loss
     z = tx @ w
-    loss = (1/N)*(np.sum(- y * z + np.log( 1 + np.exp(z)))) + lambda_ *(( np.linalg.norm(w) )**2)
+    loss = np.mean(np.logaddexp(0, z) - y * z) + lambda_ *(( np.linalg.norm(w) )**2)
 
     return loss
 
@@ -233,8 +231,11 @@ def least_squares(y,tx):
         w: numpy array of shape=(N, ). The optimal model parameters.
         loss: a scalar denoting the loss value (scalar) for the optimal model parameters. 
     """
-
-    w = np.linalg.solve(tx.T @ tx, tx.T @ y)
+    try:
+        w = np.linalg.solve(tx.T @ tx, tx.T @ y)
+    except np.linalg.LinAlgError :
+        w = np.linalg.pinv(tx.T @ tx) @ (tx.T @ y)
+    
     
     loss = compute_mse_loss(y, tx, w)
     
@@ -291,9 +292,12 @@ def reg_logistic_regression_adam(y, tx, lambda_, initial_w, max_iters,beta_1, be
     v = np.zeros_like(w)
     it = 0 #iterations
     eps = 1e-8
+    tol = 1e-5
+    res = tol +1
+    loss_0 = compute_logistic_loss(y, tx, w, lambda_)
 
     # Applying Adam
-    for n_iter in range(max_iters):
+    while it < max_iters and res>tol:
         it = it + 1
         y_i, x_i = next(batch_iter(y, tx, mini_batch_size))
         gradient = compute_logistic_gradient(y_i, x_i, w, lambda_)
@@ -307,12 +311,184 @@ def reg_logistic_regression_adam(y, tx, lambda_, initial_w, max_iters,beta_1, be
         m_hat = m /(1 - beta_1 ** it)
         v_hat= v / (1 - beta_2 ** it)
         
+        # Update
         w = w - (gamma/(np.sqrt(v_hat)+ eps)) * m_hat
+        loss_1 = compute_logistic_loss(y, tx, w, lambda_)
+        res = np.abs(loss_1 - loss_0)
+        loss_0 = loss_1
 
     # Computing optimal loss, without penalization term 
     loss = compute_logistic_loss(y, tx, w, lambda_=0)
 
     return w, loss
+
+
+def reg_logistic_regression_2(y, tx, lambda_, initial_w, max_iters, gamma):
+    """L2-Regularized logistic regression using gradient descent (y ∈ {0, 1}).
+
+    Args:
+        y : numpy array of shape = (N, ).
+        tx : numpy array of shape = (N, D).
+        lambda_ : scalar, regularization parameter.
+        initial_w : numpy array of shape = (D, ).
+        max_iters : scalar, maximum number of iterations.
+        gamma : scalar, learning rate.
+
+    Returns:
+        w : numpy array of shape = (D, ), optimal model parameters.
+        loss : scalar, logistic loss value for the optimal model parameters, without regularization.
+    """
+    # Initialization
+    w = initial_w.copy()
+    tol = 1e-5
+    res = tol + 1
+    it = 0
+
+    # Initial loss
+    loss_prev = compute_logistic_loss(y, tx, w, lambda_)
+
+    # Gradient descent loop
+    while it < max_iters and res > tol:
+        it += 1
+        grad = compute_logistic_gradient(y, tx, w, lambda_)
+        w -= gamma * grad
+
+        # Compute new loss
+        loss_curr = compute_logistic_loss(y, tx, w, lambda_)
+        res = abs(loss_curr - loss_prev)
+        loss_prev = loss_curr
+
+    # Final unregularized loss
+    loss = compute_logistic_loss(y, tx, w, lambda_=0)
+
+    return w, loss
+
+
+def logistic_regression_2(y, tx, initial_w, max_iters, gamma):
+    """
+    Logistic regression using gradient descent (y ∈ {0, 1})
+
+    INPUTS:
+        y : numpy array of shape (N,) containing train outputs (0, 1)
+        tx : numpy array of shape (N, d) containing train inputs
+        initial_w : initial weight vector of parameters
+        max_iters : max number of iterations allowed in gradient descent algorithm
+        gamma : step size
+
+    OUTPUTS:
+        w : numpy array containing the solution parameters
+        loss : the loss function value corresponding to the solution parameters
+    """
+    w = initial_w.copy()
+    lambda_ = 0
+    tol = 1e-5
+    res = tol + 1
+    it = 0
+
+    # Initial loss
+    loss_prev = compute_logistic_loss(y, tx, w, lambda_)
+
+    # Gradient descent loop
+    while it < max_iters and res > tol:
+        it += 1
+        grad = compute_logistic_gradient(y, tx, w, lambda_)
+        w -= gamma * grad
+
+        # Compute new loss and check convergence
+        loss_curr = compute_logistic_loss(y, tx, w, lambda_)
+        res = abs(loss_curr - loss_prev)
+        loss_prev = loss_curr
+
+    # Final loss (without any regularization term)
+    loss = compute_logistic_loss(y, tx, w, lambda_=0)
+
+    return w, loss
+
+
+def mean_squared_error_gd_2(y, tx, initial_w, max_iters, gamma):
+    """Gradient Descent (GD) applied to linear regression with MSE loss function,
+    with early stopping based on change in loss.
+
+    Args:
+        y : numpy array of shape (N, ).
+        tx : numpy array of shape (N, D).
+        initial_w : numpy array of shape (D, ). Initial guess for model parameters.
+        max_iters : scalar, total number of iterations allowed.
+        gamma : scalar, learning rate.
+
+    Returns:
+        w : numpy array of shape (D, ). Optimal model parameters.
+        loss : scalar, MSE loss value for the optimal model parameters.
+    """
+    # Initialization
+    w = initial_w.copy()
+    tol = 1e-5
+    res = tol + 1
+    it = 0
+
+    # Initial loss
+    loss_prev = compute_mse_loss(y, tx, w)
+
+    # Gradient Descent loop
+    while it < max_iters and res > tol:
+        it += 1
+        grad = compute_gradient(y, tx, w)
+        w -= gamma * grad
+
+        # Compute new loss
+        loss_curr = compute_mse_loss(y, tx, w)
+        res = abs(loss_curr - loss_prev)
+        loss_prev = loss_curr
+
+    # Final loss
+    loss = compute_mse_loss(y, tx, w)
+    return w, loss
+
+
+def mean_squared_error_sgd_2(y, tx, initial_w, max_iters, gamma, batch_size=1):
+    """Stochastic Gradient Descent (SGD) applied to linear regression with MSE loss function,
+    with early stopping based on change in loss.
+
+    Args:
+        y : numpy array of shape (N, ).
+        tx : numpy array of shape (N, D).
+        initial_w : numpy array of shape (D, ). Initial guess for model parameters.
+        max_iters : scalar, total number of iterations allowed.
+        gamma : scalar, learning rate.
+        batch_size : scalar, size of the mini-batch (default=1 for SGD).
+
+    Returns:
+        w : numpy array of shape (D, ). Optimal model parameters.
+        loss : scalar, MSE loss value for the optimal model parameters.
+    """
+    # Initialization
+    w = initial_w.copy()
+    tol = 1e-5
+    res = tol + 1
+    it = 0
+
+    # Initial loss
+    loss_prev = compute_mse_loss(y, tx, w)
+
+    # SGD loop
+    while it < max_iters and res > tol:
+        it += 1
+        # Take one mini-batch
+        y_i, x_i = next(batch_iter(y, tx, batch_size=batch_size))
+        grad = compute_gradient(y_i, x_i, w)
+        w -= gamma * grad
+
+        # Compute new loss on the full dataset for monitoring
+        loss_curr = compute_mse_loss(y, tx, w)
+        res = abs(loss_curr - loss_prev)
+        loss_prev = loss_curr
+
+    # Final loss
+    loss = compute_mse_loss(y, tx, w)
+    return w, loss
+
+
+
 
 
 
