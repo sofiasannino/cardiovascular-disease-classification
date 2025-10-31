@@ -46,10 +46,9 @@ def compute_mse_loss(y, tx, w):
     Returns:
         the value of the MSE loss (a scalar), corresponding to the input parameters w.
     """
+    if y.size == 0: return np.nan
     e = y - tx @ w
-    N = y.shape[0]
-    return (1 / (2 * N)) * (e.T @ e)
-
+    return 0.5 * np.mean(e**2)
 
 
 
@@ -269,58 +268,101 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
 # ***********************************************************
 ### ADDITIONAL OPTIMIZATION ALGORITHM ###
 #************************************************************
-def reg_logistic_regression_adam(y, tx, lambda_, initial_w, max_iters,beta_1, beta_2, gamma, mini_batch_size):
-    """L2-Regularized logistic regression using mini-batch Adam algorithm (y ∈ {0, 1}).
 
-    Args :
-        y : numpy array of shape = (N, ).
-        tx : numpy array of shape = (N, D).
-        lambda_ : a scalar denoting the regularization parameter.
-        initial_w : numpy array of shape = (D, ).
-        max_iters : a scalar denoting the total number of iterations of Adam SGD.
-        beta_1 : a scalar ∈ [0, 1] that defines the momentum parameter.
-        beta_2 : a scalar ∈ [0, 1] that defines the average of past squared gradients parameter.
-        gamma : a scalar denoting the stepsize.
-        mini_batch_size : size of the minibatch randomly chosen to compute gradient 
-    Returns :
-        w : numpy array of shape = (D, ). The optimal model parameters.
-        loss : a scalar denoting the logistic loss value for the optimal model parameters, without considering the penalization term.
+
+def compute_logistic_loss_weighted(y, tx, w, lambda_=0.0, class_weights=None):
     """
-    # Initial parameters
-    w = initial_w
+    Weighted logistic loss with optional L2 regularization.
+    y ∈ {0, 1}, tx shape (N, D), w shape (D,)
+    """
+    pred = sigmoid(tx @ w)
+    pred = np.clip(pred, 1e-12, 1 - 1e-12)  # stability
+
+    if class_weights is not None:
+        w_neg, w_pos = class_weights
+        weights = np.where(y == 1, w_pos, w_neg)
+        loss = -np.mean(weights * (y * np.log(pred) + (1 - y) * np.log(1 - pred)))
+    else:
+        loss = -np.mean(y * np.log(pred) + (1 - y) * np.log(1 - pred))
+
+    # L2 regularization (exclude bias if present)
+    loss += lambda_ * np.sum(w[1:] ** 2)
+    return loss
+
+
+def compute_logistic_gradient_weighted(y, tx, w, lambda_=0.0, class_weights=None):
+    """
+    Weighted gradient of logistic loss with L2 regularization.
+    """
+    pred = sigmoid(tx @ w)
+    error = pred - y
+
+    if class_weights is not None:
+        w_neg, w_pos = class_weights
+        weights = np.where(y == 1, w_pos, w_neg)
+        grad = tx.T @ (weights * error) / len(y)
+    else:
+        grad = tx.T @ error / len(y)
+
+    # L2 regularization (exclude bias term if present)
+    grad[1:] += 2 * lambda_ * w[1:]
+    return grad
+
+
+def compute_class_weights(y, alpha):
+    """
+    Compute class weights that favor the minority class y=1.
+    alpha amplifies the importance of the minority class.
+    """
+    n = len(y)
+    n_pos = np.sum(y == 1)
+    n_neg = n - n_pos
+
+    base_ratio = n_neg / n_pos  # how many negatives per positive
+    w_pos = base_ratio * alpha  # amplify minority
+    w_neg = 1.0                 # keep majority fixed
+    return w_neg, w_pos
+
+
+def reg_logistic_regression_adam(y, tx, lambda_, initial_w, max_iters,
+                                 beta_1, beta_2, gamma, mini_batch_size,
+                                 class_weights=None):
+    """
+    L2-regularized logistic regression using mini-batch Adam optimizer.
+    Supports optional class weighting.
+    """
+    w = initial_w.copy()
     m = np.zeros_like(w)
     v = np.zeros_like(w)
-    it = 0 #iterations
     eps = 1e-8
-    tol = 1e-5
-    res = tol +1
-    loss_0 = compute_logistic_loss(y, tx, w, lambda_)
+    tol = 1e-7
+    res = tol + 1
+    it = 0
 
-    # Applying Adam
-    while it < max_iters and res>tol:
-        it = it + 1
+    loss_0 = compute_logistic_loss_weighted(y, tx, w, lambda_, class_weights)
+
+    while it < max_iters and res > tol:
+        it += 1
         y_i, x_i = next(batch_iter(y, tx, mini_batch_size))
-        gradient = compute_logistic_gradient(y_i, x_i, w, lambda_)
+        gradient = compute_logistic_gradient_weighted(y_i, x_i, w, lambda_, class_weights)
 
-        # Updating momentum and second raw momentum
-        m = beta_1 * m + (1- beta_1) * gradient #momentum 
-        v = beta_2 * v + (1- beta_2) * (gradient ** 2) #squared gradients average
-        
-        
-        # Unbiased first and second momentum
-        m_hat = m /(1 - beta_1 ** it)
-        v_hat= v / (1 - beta_2 ** it)
-        
-        # Update
-        w = w - (gamma/(np.sqrt(v_hat)+ eps)) * m_hat
-        loss_1 = compute_logistic_loss(y, tx, w, lambda_)
-        res = np.abs(loss_1 - loss_0)
+        # Adam momentum updates
+        m = beta_1 * m + (1 - beta_1) * gradient
+        v = beta_2 * v + (1 - beta_2) * (gradient ** 2)
+
+        m_hat = m / (1 - beta_1 ** it)
+        v_hat = v / (1 - beta_2 ** it)
+
+        w -= (gamma / (np.sqrt(v_hat) + eps)) * m_hat
+
+        loss_1 = compute_logistic_loss_weighted(y, tx, w, lambda_, class_weights)
+        res = abs(loss_1 - loss_0)
         loss_0 = loss_1
 
-    # Computing optimal loss, without penalization term 
+    # final loss without regularization
     loss = compute_logistic_loss(y, tx, w, lambda_=0)
-
     return w, loss
+
 
 
 def reg_logistic_regression_2(y, tx, lambda_, initial_w, max_iters, gamma):
