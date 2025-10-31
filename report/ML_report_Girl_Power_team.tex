@@ -1,0 +1,159 @@
+\documentclass[10pt, a4paper, twocolumn]{article}
+\usepackage[top=1.9cm, bottom=1.3cm, left=1.3cm, right=1.3cm]{geometry} 
+\setlength{\columnsep}{0.6cm} 
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{booktabs}
+
+% Header note 
+\usepackage{fancyhdr}
+\usepackage{xcolor} 
+
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyhead[C]{\textcolor{gray!70}{\small EPFL Machine Learning Course — A.Y. 2025/2026}}%
+  \renewcommand{\headrulewidth}{0pt}%
+}
+% Titles
+\usepackage{titlesec}
+
+
+\pagestyle{plain}
+\titleformat{\section}
+  {\large\bfseries\scshape\color{black}}   
+  {\thesection.}{0.8em}{}
+
+\titleformat{\subsection}
+  {\normalsize\bfseries\itshape\color{black}} 
+  {\thesubsection.}{0.6em}{}
+
+\titlespacing*{\section}{0pt}{1.5ex plus 1ex minus .2ex}{1ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 1ex minus .2ex}{0.8ex plus .2ex}
+
+%\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+%\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+%\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+%\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\title{\textbf{Cardiovascular Diseases Detection and Prevention}}
+\author{Neila Benlamri, Bipasha Goyal, Sofia Sannino}
+\date{CS-433 Project 1: Girl Power Team}
+
+
+\begin{document}
+
+
+\maketitle
+\thispagestyle{plain}
+\section*{Abstract}
+This report presents our work on designing robust data processing and regression machine learning techniques to predict cardiovascular diseases (CVD) and identify the key factors influencing its development. 
+\section{Introduction}
+Cardiovascular diseases (CVD) are a leading global health emergency, particularly in the context of an aging population. Thus, developing effective detection and prevention systems is essential. In this report, we compare the performance of linear and logistic regression models trained on the Behavioral Risk Factor Surveillance System (BRFSS) dataset. 
+
+\section{Data Processing}
+In large and complex datasets the design of a structured data processing pipeline is critical for model stability and performance. The raw data was processed through the following steps. 
+\subsection{Initial Cleaning \& Feature Selection} Redundant columns (identifiers, date/time stamps, and trivial survey codes) were dropped, as they carry no predictive power and can introduce noise.
+\subsection{Missing Value Handling} Features missing more than $40\%$ of values were removed entirely. For remaining missing values, imputation was performed using simple statistical measures, chosen to minimize distortion of the feature distributions. In particular, we classified and divided features as numerical and categorical, replacing missing values with their median and mode respectively.
+\subsection{Data Augmentation}
+Since our dataset is heavily unbalanced, we decided to implement data augmentation to avoid overfitting. In particular, we added small Gaussian noise to numerical features and added these noisy clone samples to the original dataset.
+\subsection{One-hot encoding}
+In order to properly train models on categorical features without introducing artificial order within categories, we implemented a one-hot encoding algorithm. We chose one-hot encoding to preserve interpretability and stability, with a reasonable increase in computational cost.
+\subsection{Correlation analysis}
+We performed Pearson correlation analysis on numerical features and dropped features with a Pearson's correlation coefficient higher than $0.90$ in absolute value, in order to reduce multicollinearity and simplify features space, avoiding redundant information.
+\subsection{Winsorization Outlier Analysis} Winsorization statistical technique was used on numerical features for detecting and mitigating the influence of extreme values that could skew the models performance. We applied Winsorization above the 1st percentile and below the 99th percentile.
+\subsection{Standardization} All numerical features were standardized (zero mean, unit variance, $\mu=0, \sigma=1$), to ensure that all features are on the same numerical scale.
+\subsection{Principal Component Analysis (PCA)}
+We performed PCA on the standardized numerical features to further reduce the dimensionality and remove redundancies.
+\subsection{Polynomial Basis Expansion (PBE)} To allow the inherently linear models to capture non-linear decision boundaries, features were expanded using a polynomial basis up to a predefined degree $D$. We chose $D=2$ trying to maximize models' representation capacity without reaching an unsustainable computational cost.
+\\ \\
+Conscious that some techniques could perform better than others on our dataset and some steps are not compatible, we trained models and then compared results using different data processing pipelines to find the most suitable: 
+\begin{itemize}
+    \item \textbf{Dataset 1:} applied every step above sequentially, except PBE and data augmentation.
+    \item \textbf{Dataset 2:} applied every step above sequentially, except PBE.
+    \item \textbf{Dataset 3:} applied every step above sequentially, except data augmentation.
+    \item \textbf{Dataset 4:} applied every step above sequentially, except data augmentation and one-hot encoding.
+\end{itemize}
+
+\section{Training and Model Evaluation}
+We describe below our machine learning workflow critical steps and choices. We report here the results obtained on Dataset 1; similar trends were observed on the other datasets, though with lower performance.
+
+\subsection{Machine Learning Models and Metrics}
+\begin{itemize}
+    \item \textbf{Models} We compared and analyzed the following linear and logistic regression models : linear regression using \textit{least squares}, linear regression minimizing mean squared error through \textit{stochastic gradient descent}, \textit{ridge regression} and \textit{L2-regularized logistic regression} minimizing logistic loss through Adam algorithm. We implemented Adam to reach the optimum faster with respect to other algorithms such as gradient discent or stochatisc gradient discent.
+    \item \textbf{Metrics} To compare models, we evaluated their performance using the following metrics: Area Under the ROC Curve (AUC), F1-Score (F1) and accuracy. We used AUC to discriminate between models and hyperparameter choices, since it is insensitive to class imbalance and evaluates how well the model ranks positive samples above negatives independently of the threshold chosen to classify 1 or 0. Once we found the optimal models and hyperparameters, we determined the discrimination threshold that maximized F1. F1 quantifies the balance between precision and recall, making it an appropriate metric for evaluating disease prediction models, where correctly identifying positive cases is critical.
+    \item \textbf{Dealing with unbalanced data} Since our dataset is deeply unbalanced, we trained linear regression models with \textit{oversampling} on the dataset and introduced \textit{positive ratio class weights} in logistic regression to increase positive samples impact on the loss. 
+\end{itemize}
+
+\subsection{K-Fold Cross-Validation Between Linear Models}
+We performed an initial \textit{5-fold cross-validation} scheme on oversampled data to evaluate linear regression models and initialize a rough hyperparameters tuning, ensuring an unbiased estimate. The model achieving the highest AUC was selected for further analysis and hyperparameter tuning. Although the difference is small, Ridge Regression achieves the highest AUC.
+\begin{table}[h!]
+\centering
+\small
+\caption{Initial Linear Model Performances on Dataset 1.}
+\setlength{\tabcolsep}{4pt}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Dataset} & $\boldsymbol{\lambda}$ & \textbf{AUC} & \textbf{F1} & \textbf{Acc. (\%)} \\
+\midrule
+\textit{Least Squares} & Dataset 1 & -- & 0.85778 & 0.37065 & 75.70 \\
+\textit{Ridge Regression} & Dataset 1 & $1\times10^{-4}$ & 0.85800 & 0.37081 & 75.70 \\
+\textit{MSE (SGD)} & Dataset 1 & $1\times10^{-4}$ & 0.85800 & 0.37081 & 75.70 \\
+\bottomrule
+\end{tabular}}
+\label{tab:first_results}
+\end{table}
+
+
+\subsection{Hyperparameters Tuning}
+A hyperparameter tuning pipeline was applied to the best-performing linear regression model and to the regularized logistic regression model trained with Adam. We followed \textit{successive halving} strategy: computational resources were allocated progressively, refining the tuning around the most promising configurations (with respect to AUC), while discarding poor ones early. To evaluate metrics performance, we used again a k-fold cross validation, using oversampled dataset for the linear model. In particular, we started with $\lambda \in \{e^{-5}, ..., e^2\} $ regularization parameter, $ \gamma \in \{e^{-5}, ..., e^2\}$ Adam step-size, $ \alpha \in \{0.25,0.5, 1,.., 5 \}$ positive class ratio parameter, we trained with randomly chosen tuples $(\lambda, \gamma, \alpha)$ with less folds (3) and iterations (for Adam), and then focused on the most favorable combinations, increasing folds and iterations.    
+
+\subsection{Finding The Best Threshold}
+Once hyperparameters were defined, we determined the optimal classification threshold that maximized the F1-score. To this end, a \textit{5-fold cross-validation with different random seeds} was performed, training both the best-found linear model and Adam logistic regression model to identify the best threshold for each.
+
+\subsection{Final K-Cross Validation}
+A final \textit{K-cross validation with five folders} was implemented to train the two chosen models with the right hyperparameters and find the optimal weights for each. 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{plots/final_k_cross.png}
+    \caption{Final K-Cross Validation Results on Dataset 1}
+    \label{fig:final_k_cross}
+\end{figure}
+
+\section{Validation}
+Before training, the dataset was randomly divided into a $20\%$ validation set and an $80\%$ training set, on which the steps described in the previous section were performed. Finally, the optimal weights from the linear and logistic models were applied to the validation set to compute performance metrics and identify the final optimal model for our objectives. We chose the best model with respect to F1-Score. 
+
+
+\section{Conclusion}
+We report in the following table \ref{tab:best_model} the models performances in validation, with  hyperparameters and optimal threshold $t^*$ found as described in section 3.3 and 3.4.
+\begin{table}[h!]
+\centering
+\small
+\caption{Final Performance on Validation Set Dataset~1.}
+\setlength{\tabcolsep}{4pt} 
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Model} & \textbf{Dataset} & $\boldsymbol{\lambda}$ & $\boldsymbol{t^*}$ & \textbf{AUC} & \textbf{F1} & \textbf{Acc. (\%)} \\
+\midrule
+\textit{Ridge Regression} & Dataset~1 & $4\times10^{-4}$ & $0.68$ & $0.858$ & $0.424$ & $87.12$ \\
+\textit{Adam Reg. Log. Reg.} & Dataset~1 & $1\times10^{-3}$ & $0.6996$ & $0.8566$ & $0.4187$ & $85.43$ \\
+\bottomrule
+\end{tabular}}
+\label{tab:best_model}
+\end{table}
+\noindent
+The Adam regularized logistic regression  model  used $\alpha=1.0$, $\gamma=0.010$. 
+\textbf{Thus, the best model is ridge regression on Dataset 1} with hyperparameters and threshold described above.
+Applying this model, we reached an F1-Score of $0.434$ and an accuracy of $0.875$ on AIcrowd.
+The project successfully established a comprehensive machine learning framework and future work involving external libraries, more advanced ML models, and deeper hyperparameter tuning could further enhance overall performance.
+
+\\ 
+\nocite{*}
+\bibliographystyle{IEEEtran} 
+\bibliography{references}
+
+\end{document}
