@@ -1,4 +1,4 @@
-# ML Project 1: Girl_power team 
+# Cardiovascular Disease Detection and Prevention
 
 ## Introduction
 Cardiovascular diseases (CVD) are a leading global health emergency, particularly in the context of an aging population.  
